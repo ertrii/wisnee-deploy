@@ -63,6 +63,22 @@ server {
         proxy_set_header X-Forwarded-Proto https;
     }
 
+    # Rutas LEGACY del backend servidas en la RAÍZ (sin /api) durante la
+    # transición DDD. Lista autoritativa = sus @Module en el server:
+    # customers, debts, invoices, projects, receipts y las vistas de
+    # documentos/recibos en /v. El SPA usa hash-routing, así que el navegador
+    # nunca pide estos paths como navegación: son llamadas a la API. Sin esto
+    # caen al contenedor web (estático) y devuelven 405/HTML → no registra
+    # clientes, no emite/anula recibos, no se ven PDFs, etc.
+    # (El regex no matchea /api/* — esas siguen yendo por `location /api/`.)
+    location ~ ^/(customers|debts|invoices|projects|receipts|v)(/|$) {
+        proxy_pass http://server:4000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
     # SPA (nginx interno del contenedor web).
     location / {
         proxy_pass http://web:80;
