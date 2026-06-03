@@ -1,0 +1,52 @@
+---
+- name: Directorio de keyrings de apt
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: GPG oficial de Docker
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+
+- name: Mapear arquitectura a la del repo Docker
+  ansible.builtin.set_fact:
+    docker_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' }}"
+
+- name: Repositorio de Docker
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch={{ docker_arch }} signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+    filename: docker
+    state: present
+
+- name: Instalar Docker Engine + plugins (compose, buildx)
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+
+- name: Servicio docker habilitado y arrancado
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Login a GHCR (imágenes privadas)
+  ansible.builtin.command:
+    cmd: "docker login ghcr.io -u {{ ghcr_username }} --password-stdin"
+    stdin: "{{ ghcr_token }}"
+  register: ghcr_login
+  changed_when: "'Login Succeeded' in (ghcr_login.stdout | default(''))"
+  no_log: true
+  when:
+    - ghcr_username | length > 0
+    - ghcr_token | length > 0

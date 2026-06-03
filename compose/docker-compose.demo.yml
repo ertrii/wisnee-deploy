@@ -1,0 +1,34 @@
+# Overlay de DEMO: agrega el seed one-shot que resetea la BD y siembra datos
+# de demostración. NO levanta mk-bridge ni wa-bridge (entorno core-only).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+#
+# GUARDARRAÍL: el seed BORRA la base. La imagen `:…-seed` y este overlay solo
+# se usan en Demo; el orquestador exige APP_ENV=demo antes de invocarlo, y el
+# servicio se niega a correr si no lo es. Nunca incluir este overlay en prod.
+
+name: wisnee
+
+services:
+  seed:
+    image: ghcr.io/ertrii/wisnet-server:${TAG:-latest}-seed
+    restart: "no"
+    env_file: [../env/server.env]
+    # Doble cinturón: aunque solo se invoque en Demo, el contenedor aborta si
+    # APP_ENV no es "demo".
+    environment:
+      APP_ENV: ${APP_ENV:-}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        if [ "$${APP_ENV}" != "demo" ]; then
+          echo "ABORT: el seed solo corre con APP_ENV=demo (actual: '$${APP_ENV}')"; exit 1;
+        fi;
+        npm run seed
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    networks: [wisnee]

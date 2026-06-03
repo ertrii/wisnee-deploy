@@ -1,0 +1,6 @@
+# Este repo se ejecuta en Linux (VPS). Forzamos LF para evitar que CRLF de
+# Windows rompa scripts, configs de nginx o el parseo de YAML/Python.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

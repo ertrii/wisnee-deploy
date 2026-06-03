@@ -1,0 +1,90 @@
+---
+- name: Zona horaria
+  ansible.builtin.timezone:
+    name: "{{ timezone }}"
+
+- name: Paquetes base
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - ufw
+      - fail2ban
+      - unattended-upgrades
+      - gettext-base        # envsubst (render del nginx)
+      - acl                 # become_user no-root sobre archivos
+      - python3
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+# ---- Swap (red de seguridad anti-OOM de Chromium) ----
+- name: ¿Existe el swapfile?
+  ansible.builtin.stat:
+    path: /swapfile
+  register: swapfile_stat
+  when: swap_size_mb | int > 0
+
+- name: Crear swapfile
+  ansible.builtin.command:
+    cmd: "fallocate -l {{ swap_size_mb }}M /swapfile"
+    creates: /swapfile
+  when:
+    - swap_size_mb | int > 0
+    - not swapfile_stat.stat.exists
+
+- name: Permisos del swapfile (0600)
+  ansible.builtin.file:
+    path: /swapfile
+    owner: root
+    group: root
+    mode: "0600"
+  when: swap_size_mb | int > 0
+
+- name: Formatear swap
+  ansible.builtin.command:
+    cmd: mkswap /swapfile
+  when:
+    - swap_size_mb | int > 0
+    - not swapfile_stat.stat.exists
+
+- name: Activar swap
+  ansible.builtin.command:
+    cmd: swapon /swapfile
+  register: swapon_result
+  changed_when: "'already' not in (swapon_result.stderr | default(''))"
+  failed_when:
+    - swapon_result.rc != 0
+    - "'already' not in (swapon_result.stderr | default(''))"
+  when:
+    - swap_size_mb | int > 0
+    - not swapfile_stat.stat.exists
+
+- name: Persistir swap en fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    line: "/swapfile none swap sw 0 0"
+    regexp: "^/swapfile "
+    state: present
+  when: swap_size_mb | int > 0
+
+- name: Swappiness (preferir RAM sobre swap)
+  ansible.posix.sysctl:
+    name: vm.swappiness
+    value: "{{ swappiness }}"
+    state: present
+    sysctl_file: /etc/sysctl.d/99-wisnee.conf
+    reload: true
+  when: swap_size_mb | int > 0
+
+# ---- Actualizaciones de seguridad automáticas ----
+- name: Habilitar unattended-upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";

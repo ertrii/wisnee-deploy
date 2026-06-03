@@ -1,0 +1,39 @@
+# Overlay de PRODUCCIÓN: agrega los bridges (mk-bridge, wa-bridge) al stack base.
+# Demo no los levanta (entorno core-only).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+name: wisnee
+
+services:
+  wa-bridge:
+    image: ghcr.io/ertrii/wa-bridge:${TAG:-latest}
+    restart: unless-stopped
+    env_file: [../env/wa-bridge.env]
+    volumes:
+      - wa-session:/app/.wwebjs_auth
+    expose: ["4100"]
+    networks: [wisnee]
+
+  mk-bridge:
+    image: ghcr.io/ertrii/mk-bridge:${TAG:-latest}
+    restart: unless-stopped
+    env_file: [../env/mk-bridge.env]
+    # WireGuard: capacidades y device para crear interfaces / levantar túneles.
+    cap_add: [NET_ADMIN, NET_RAW]
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    sysctls:
+      - net.ipv4.ip_forward=1
+    volumes:
+      - mk-wireguard:/etc/wireguard
+    # UDP público para que los Mikrotik bajo CGNAT se conecten (WG reverso).
+    # La API HTTP (4200) queda interna (solo el server la consume).
+    ports:
+      - "${WG_REVERSE_LISTEN_PORT:-51820}:51820/udp"
+    expose: ["4200"]
+    networks: [wisnee]
+
+volumes:
+  wa-session:
+  mk-wireguard:

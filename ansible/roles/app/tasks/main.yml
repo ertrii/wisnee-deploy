@@ -1,0 +1,25 @@
+---
+# Esqueleto del stack en el VPS. Los archivos (compose, nginx, env con secrets)
+# los coloca el orquestador Python (Fase 4); acá solo dejamos los directorios
+# con permisos estrictos: nadie fuera de root accede.
+
+- name: Directorio raíz del stack
+  ansible.builtin.file:
+    path: "{{ deploy_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Subdirectorios (compose, nginx, env)
+  ansible.builtin.file:
+    path: "{{ deploy_dir }}/{{ item.name }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { name: compose, mode: "0750" }
+    - { name: nginx, mode: "0750" }
+    # env guarda los secrets → solo root, 0700.
+    - { name: env, mode: "0700" }

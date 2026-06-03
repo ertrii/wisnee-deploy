@@ -1,0 +1,26 @@
+# Configuración del provisioning. El orquestador (Fase 4) puede sobreescribir
+# con --extra-vars o un vars file (sobre todo ghcr_token, que es secreto).
+
+deploy_dir: /opt/wisnee
+timezone: America/Lima
+
+# Swap anti-OOM (Chromium de puppeteer/whatsapp-web.js). Recomendado en
+# droplets de 2-4 GB de RAM. 0 = no crear swap.
+swap_size_mb: 2048
+swappiness: 10
+
+# Reglas de UFW (default: deny incoming, allow outgoing).
+ufw_rules:
+  - { port: "22", proto: tcp, comment: "SSH" }
+  - { port: "80", proto: tcp, comment: "HTTP (ACME + redirect)" }
+  - { port: "443", proto: tcp, comment: "HTTPS" }
+  - { port: "51820", proto: udp, comment: "WireGuard reverso (mk-bridge)" }
+
+# Endurecer SSH a key-only. IMPORTANTE: asegurate de tener tu llave SSH cargada
+# en el droplet ANTES, o te quedás afuera. Poné false si todavía usás password.
+harden_ssh: true
+
+# Login a GHCR para bajar las imágenes privadas. Lo inyecta el orquestador.
+# Vacío = se omite el login (útil si las imágenes fueran públicas).
+ghcr_username: ""
+ghcr_token: ""

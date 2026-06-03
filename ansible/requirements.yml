@@ -1,0 +1,5 @@
+# Colecciones requeridas. Instalalas con:
+#   ansible-galaxy collection install -r requirements.yml
+collections:
+  - name: community.general   # módulo ufw
+  - name: ansible.posix       # sysctl

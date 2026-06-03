@@ -1,0 +1,9 @@
+# Archivos generados por el orquestador con secrets reales — NUNCA versionar.
+env/*.env
+compose/.env
+nginx/default.conf
+
+# Sistema / credenciales entregadas
+credentials.txt
+*.log
+__pycache__/

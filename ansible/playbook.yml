@@ -1,0 +1,16 @@
+---
+# Provisioning idempotente del VPS (Ubuntu Server 24.04+) para el stack Wisnee.
+# NO despliega la app (eso lo hace docker compose, orquestado por el CLI Python):
+# solo deja el sistema listo — paquetes, Docker, swap, firewall, hardening.
+#
+#   ansible-galaxy collection install -r requirements.yml
+#   ansible-playbook playbook.yml            # contra el propio VPS (localhost)
+#
+- name: Provisionar VPS Wisnee
+  hosts: wisnee
+  become: true
+  roles:
+    - base        # paquetes, timezone, swap, security updates
+    - docker      # Docker Engine + compose plugin + login GHCR
+    - hardening   # UFW, fail2ban, SSH key-only
+    - app         # directorios del stack con permisos estrictos

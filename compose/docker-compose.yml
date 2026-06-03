@@ -1,0 +1,111 @@
+# Stack base de Wisnee (común a Demo y Producción).
+#
+# Servicios públicos: SOLO `proxy` (80/443). El resto vive en la red interna
+# `wisnee` y nunca se publica. Las imágenes se bajan de GHCR (no se buildea en
+# el server); el orquestador hace `docker login` + `pull`.
+#
+# El orquestador genera los archivos en ../env/ con los secrets reales. Las
+# credenciales de Postgres deben coincidir entre db.env (POSTGRES_*) y
+# server.env (DB_*).
+#
+# Uso (lo invoca el orquestador):
+#   Producción: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#   Demo:       docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+
+name: wisnee
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: [../env/db.env]
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [wisnee]
+
+  # One-shot: corre las migraciones y termina. El server espera a que complete.
+  # Usa el binario typeorm (dep de prod) — NO `npm run migration:run:prod`,
+  # que depende de cross-env (devDependency ausente en la imagen de runtime).
+  migrate:
+    image: ghcr.io/ertrii/wisnet-server:${TAG:-latest}
+    restart: "no"
+    env_file: [../env/server.env]
+    command: ["npx", "typeorm", "migration:run", "-d", "build/config/db-source.js"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [wisnee]
+
+  server:
+    image: ghcr.io/ertrii/wisnet-server:${TAG:-latest}
+    restart: unless-stopped
+    env_file: [../env/server.env]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - server-public:/app/public
+      - server-storage:/app/storage
+    expose: ["4000"]
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://localhost:4000/docs.json',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks: [wisnee]
+
+  web:
+    image: ghcr.io/ertrii/wisnet:${TAG:-latest}
+    restart: unless-stopped
+    expose: ["80"]
+    networks: [wisnee]
+
+  proxy:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on: [server, web]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot-webroot:/var/www/certbot:ro
+      - certbot-conf:/etc/letsencrypt:ro
+    networks: [wisnee]
+
+  # Renovación automática del certificado. La EMISIÓN inicial la hace el
+  # orquestador (ver README: dummy-cert → certbot certonly --webroot → reload).
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - certbot-webroot:/var/www/certbot
+      - certbot-conf:/etc/letsencrypt
+    entrypoint: >
+      /bin/sh -c "trap exit TERM;
+      while :; do certbot renew --webroot -w /var/www/certbot --quiet;
+      sleep 12h & wait $${!}; done"
+    networks: [wisnee]
+
+volumes:
+  db-data:
+  server-public:
+  server-storage:
+  certbot-webroot:
+  certbot-conf:
+
+networks:
+  wisnee:
+    name: wisnee

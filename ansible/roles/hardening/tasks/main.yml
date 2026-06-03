@@ -1,0 +1,59 @@
+---
+# ---- Firewall (UFW) ----
+- name: UFW — política por defecto (deny in / allow out)
+  community.general.ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  loop:
+    - { direction: incoming, policy: deny }
+    - { direction: outgoing, policy: allow }
+
+- name: UFW — abrir puertos del stack
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    comment: "{{ item.comment }}"
+  loop: "{{ ufw_rules }}"
+
+# Habilitar va DESPUÉS de abrir el 22, para no quedar afuera.
+- name: UFW — habilitar
+  community.general.ufw:
+    state: enabled
+    logging: "on"
+
+# ---- fail2ban ----
+- name: fail2ban — jail de sshd
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [sshd]
+      enabled = true
+      maxretry = 5
+      findtime = 10m
+      bantime = 1h
+  notify: restart fail2ban
+
+- name: fail2ban — servicio habilitado
+  ansible.builtin.systemd:
+    name: fail2ban
+    enabled: true
+    state: started
+
+# ---- SSH key-only ----
+- name: SSH — endurecer a key-only (drop-in)
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/99-wisnee.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      # Gestionado por Ansible (wisnee). Acceso solo por llave SSH.
+      PasswordAuthentication no
+      PermitRootLogin prohibit-password
+      ChallengeResponseAuthentication no
+  notify: restart ssh
+  when: harden_ssh | bool

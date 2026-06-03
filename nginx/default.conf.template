@@ -1,0 +1,74 @@
+# Reverse proxy de Wisnee. El orquestador renderiza ${DOMAIN} con:
+#   envsubst '$DOMAIN' < default.conf.template > default.conf
+# (¡solo $DOMAIN! — el resto de $variables son de nginx y no deben tocarse).
+#
+# Topología same-origin: el SPA y la API viven en el mismo dominio, así que
+# las cookies de sesión funcionan sin CORS. /api/* (incluido el WebSocket
+# /api/whatsapp/ws) va al backend; el resto, al contenedor del SPA.
+
+# Soporte de upgrade WebSocket: Connection = "upgrade" solo si el cliente lo pide.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+# ---- HTTP: ACME challenge + redirección a HTTPS ----
+server {
+    listen 80;
+    listen [::]:80;
+    server_name ${DOMAIN};
+
+    # Desafío de Let's Encrypt (certbot --webroot).
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ---- HTTPS: TLS + proxy ----
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+
+    # Subidas grandes (el server acepta hasta 80 MB en express).
+    client_max_body_size 80m;
+
+    # API + WebSocket de WhatsApp (/api/whatsapp/ws) → backend.
+    location /api/ {
+        proxy_pass http://server:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 3600s;
+    }
+
+    # Estáticos servidos por el server bajo /public (logos, adjuntos).
+    location /public/ {
+        proxy_pass http://server:4000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+
+    # SPA (nginx interno del contenedor web).
+    location / {
+        proxy_pass http://web:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}
