@@ -8,19 +8,34 @@ la capa de runtime.
 
 ## Instalación rápida (en el VPS)
 
+El **mismo** flujo en cada máquina nueva (prod o demo): clonar + `init`.
+
 ```bash
-# 1. Crear el droplet con tu llave SSH (Ubuntu 24.04). Recomendado: 4 GB para prod.
-# 2. Apuntar el DNS del dominio a la IP del droplet.
+# 1. Crear el droplet con tu llave SSH (Ubuntu 24.04). Recomendado: 4 GB para prod, 2 GB para demo.
+# 2. Apuntar el DNS del dominio a la IP del droplet (necesario ANTES del init: certbot lo valida).
 # 3. En el server (como root):
 git clone https://github.com/ertrii/wisnee-deploy.git /opt/wisnee
 cd /opt/wisnee
-sudo ./wisnee init        # pregunta dominio, email, GHCR, etc. y levanta todo
+sudo ./wisnee init        # pregunta dominio, email, GHCR, tag, etc. y levanta todo
 ```
+
+En el `init`, dos respuestas a tener claras:
+
+- **Tag de imágenes**: `edge` para demo (rolling, última `main`) o una versión
+  de release `vX.Y.Z` para prod (inmutable, coherente, con rollback). Ver
+  "Versionado / Releases".
+- **Token de GHCR**: el de la máquina es de **solo lectura** (`read:packages`)
+  porque el VPS solo hace `pull`. ⚠️ NO uses acá el PAT con `write:packages`:
+  ese es **solo** para el secret `GHCR_PAT` del workflow de Release.
 
 `init` hace: prompts → **autogenera todos los secrets** → render de `env/*` y
 nginx → Ansible (docker, swap, UFW, fail2ban, SSH key-only) → `docker login` +
 `pull` → migrate → `up` → emite el certificado TLS → escribe
 `/tmp/wisnee-credentials.txt` (con la URL de setup + `INIT_TOKEN`).
+
+> Cada instalación es **independiente y autocontenida**: genera sus propios
+> secrets, su propia BD y su propio certificado. Levantar una segunda máquina no
+> comparte nada con la primera; alcanzan los 3 pasos de arriba.
 
 ## Comandos
 
