@@ -45,7 +45,16 @@ def cmd_init(args):
         })
 
     if answers["ghcr_token"]:
-        runner.docker_login(answers["ghcr_user"], answers["ghcr_token"])
+        try:
+            runner.docker_login(answers["ghcr_user"], answers["ghcr_token"])
+        except subprocess.CalledProcessError:
+            _die(
+                "Falló el login a GHCR. El token debe ser un PAT *classic* de "
+                f"GitHub con scope read:packages, sin vencer, del usuario "
+                f"'{answers['ghcr_user']}'. Probalo a mano:\n"
+                f"  docker login ghcr.io -u {answers['ghcr_user']}\n"
+                "Luego reintentá: ./wisnee init --force"
+            )
 
     env = answers["env"]
     print("\n→ Bajando imágenes de GHCR…")
