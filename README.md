@@ -97,20 +97,54 @@ docker compose ... exec proxy nginx -s reload
 
 El servicio `certbot` del compose renueva en loop cada 12 h.
 
-## Actualizar
+## Versionado / Releases (tren de releases)
+
+Una sola versión de producto para los 5 servicios, sin recompilar lo que no
+cambió. El modelo:
+
+1. **Cada push a `main`** de un repo de app publica su imagen `:edge`
+   (+ `:sha-xxxx`) en GHCR, con caché → rápido. Solo se reconstruye el repo
+   que cambió (un commit de frontend NO recompila el server).
+2. **Cortar un release**: en `wisnee-deploy` → Actions → **Release** →
+   *Run workflow* con la versión (`v2.0.0-beta.2`). Ese workflow **fotografía**
+   los `:edge` actuales de los 5 artefactos en un tag de versión **inmutable y
+   compartido** (`docker buildx imagetools create`, sin recompilar). Todos los
+   servicios quedan a la misma versión.
+3. **Desplegar / rollback** por un solo número:
 
 ```bash
-./wisnee update                       # baja imágenes nuevas (tags actuales), migra y recrea
-./wisnee update --tag v2.0.0          # mueve TODOS los servicios al tag v2.0.0
-./wisnee update --web v2.0.0-beta.2   # mueve SOLO el frontend (server/bridges quedan igual)
+./wisnee update --tag v2.0.0-beta.2   # mueve los 5 servicios a esa versión
+./wisnee update --tag v2.0.0-beta.1   # rollback exacto
+./wisnee update                       # re-aplica los tags vigentes (p. ej. demo en edge)
 ```
 
-Cada servicio puede pinearse por separado (`--server`, `--web`, `--wa`, `--mk`)
-o todos juntos con `--tag`. Los overrides se persisten en `compose/.env`
-(`SERVER_TAG`, `WEB_TAG`, `WA_TAG`, `MK_TAG`); si no se setean, caen al `TAG`
-global. Esto permite subir un cambio que tocó solo el frontend sin recompilar
-ni recrear el server. Como cada repo publica su imagen por su propio tag git
-(`v*.*.*`), basta con cortar el tag en el repo que cambió y apuntar ahí.
+La versión del release coincide con el `VERSION` del footer del login —
+bumpealo al cortar el release, no antes.
+
+> **Secret requerido**: el workflow Release necesita `GHCR_PAT` (Settings →
+> Secrets → Actions de `wisnee-deploy`): un PAT classic del owner con
+> `write:packages` + `read:packages` (el token de solo lectura del deploy no
+> alcanza para retaggear).
+>
+> **Bootstrap** (primera vez): los `:edge` tienen que existir. Corré una vez el
+> workflow "Release image" (o pusheá a main) en cada repo de app para sembrar
+> los `:edge`, y recién ahí cortá el primer Release.
+>
+> **Demo** puede vivir en `TAG=edge` (siempre la última main): un `./wisnee
+> update` la pone al día sin cortar release.
+
+### Escape hatch: tag por servicio
+
+Para un hotfix que NO toca el protocolo front/back (un fix de nginx/SEO, etc.)
+podés mover un solo servicio sin tocar los demás:
+
+```bash
+./wisnee update --web v2.0.0-beta.2   # solo el frontend; server/bridges quedan igual
+```
+
+`--server`, `--web`, `--wa`, `--mk` persisten `SERVER_TAG`/`WEB_TAG`/… en
+`compose/.env` (ganan sobre `TAG`). **Usalo con cuidado**: desincronizar
+`web` y `server` puede disparar la pantalla `old_version`.
 
 Manual equivalente:
 

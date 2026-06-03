@@ -23,7 +23,11 @@ def ask_init() -> dict:
 
     domain = _ask("Dominio público (ej. panel.tu-isp.com)")
     email = _ask("Email para Let's Encrypt (avisos de expiración)")
-    tag = _ask("Tag de imágenes a desplegar", "latest")
+    # `edge` = última main (rolling, ideal para demo). `vX.Y.Z` = release
+    # inmutable y coherente (recomendado para prod). Cambiable luego con
+    # `./wisnee update --tag <tag>`.
+    tag = _ask("Tag de imágenes (edge=rolling / vX.Y.Z=release)",
+               "edge" if env == "demo" else "latest")
 
     print("\n  -- Acceso a GHCR (imágenes privadas) --")
     ghcr_user = _ask("Usuario de GitHub")

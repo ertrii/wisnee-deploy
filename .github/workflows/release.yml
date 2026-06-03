@@ -1,0 +1,60 @@
+name: Release
+
+# Arma un release COHERENTE: fotografía los `:edge` actuales de los 5 artefactos
+# (server, server-seed, web, wa-bridge, mk-bridge) en un tag de versión
+# inmutable y compartido `vX.Y.Z`. NO recompila nada — `docker buildx imagetools
+# create` copia el manifest en el registry (instantáneo). Así todos los
+# servicios quedan pineados a una sola versión y el rollback es trivial.
+#
+# Requiere el secret GHCR_PAT: un PAT classic del owner con write:packages +
+# read:packages (el de solo lectura del deploy no alcanza para retaggear).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión del release (ej. v2.0.0-beta.2)"
+        required: true
+      source:
+        description: "Tag de origen a fotografiar (normalmente edge)"
+        default: edge
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  OWNER: ertrii
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar formato de versión
+        run: |
+          echo "${{ inputs.version }}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$' \
+            || { echo "::error::Versión inválida '${{ inputs.version }}'. Usá vX.Y.Z o vX.Y.Z-suffix."; exit 1; }
+
+      - name: Login a GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ env.OWNER }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Retag edge → versión (sin recompilar)
+        env:
+          V: ${{ inputs.version }}
+          S: ${{ inputs.source }}
+        run: |
+          set -euo pipefail
+          retag() {
+            local img="ghcr.io/${OWNER}/$1"
+            echo "→ $img:$3  ⇐  $img:$2"
+            docker buildx imagetools create -t "$img:$3" "$img:$2"
+          }
+          retag wisnet-server "$S"          "$V"
+          retag wisnet-server "${S}-seed"   "${V}-seed"
+          retag wisnet        "$S"          "$V"
+          retag wa-bridge     "$S"          "$V"
+          retag mk-bridge     "$S"          "$V"
+          echo "::notice::Release $V listo. Desplegá: ./wisnee update --tag $V"
