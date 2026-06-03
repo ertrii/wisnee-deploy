@@ -7,7 +7,7 @@ name: wisnee
 
 services:
   wa-bridge:
-    image: ghcr.io/ertrii/wa-bridge:${TAG:-latest}
+    image: ghcr.io/ertrii/wa-bridge:${WA_TAG:-${TAG:-latest}}
     restart: unless-stopped
     env_file: [../env/wa-bridge.env]
     volumes:
@@ -16,7 +16,7 @@ services:
     networks: [wisnee]
 
   mk-bridge:
-    image: ghcr.io/ertrii/mk-bridge:${TAG:-latest}
+    image: ghcr.io/ertrii/mk-bridge:${MK_TAG:-${TAG:-latest}}
     restart: unless-stopped
     env_file: [../env/mk-bridge.env]
     # WireGuard: capacidades y device para crear interfaces / levantar túneles.

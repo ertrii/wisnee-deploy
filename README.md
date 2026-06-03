@@ -100,9 +100,22 @@ El servicio `certbot` del compose renueva en loop cada 12 h.
 ## Actualizar
 
 ```bash
-docker compose ... pull          # baja las imágenes del nuevo TAG
+./wisnee update                       # baja imágenes nuevas (tags actuales), migra y recrea
+./wisnee update --tag v2.0.0          # mueve TODOS los servicios al tag v2.0.0
+./wisnee update --web v2.0.0-beta.2   # mueve SOLO el frontend (server/bridges quedan igual)
+```
+
+Cada servicio puede pinearse por separado (`--server`, `--web`, `--wa`, `--mk`)
+o todos juntos con `--tag`. Los overrides se persisten en `compose/.env`
+(`SERVER_TAG`, `WEB_TAG`, `WA_TAG`, `MK_TAG`); si no se setean, caen al `TAG`
+global. Esto permite subir un cambio que tocó solo el frontend sin recompilar
+ni recrear el server. Como cada repo publica su imagen por su propio tag git
+(`v*.*.*`), basta con cortar el tag en el repo que cambió y apuntar ahí.
+
+Manual equivalente:
+
+```bash
+docker compose ... pull          # baja las imágenes de los tags vigentes
 docker compose ... up -d         # recrea solo lo cambiado (migrate corre antes del server)
 docker image prune -f
 ```
-
-Pineá `TAG` en `compose/.env` para poder hacer rollback a un tag anterior.

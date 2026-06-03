@@ -41,3 +41,12 @@ def read_env_file(path: Path) -> dict:
         k, v = line.split("=", 1)
         data[k.strip()] = v.strip()
     return data
+
+
+def write_env_file(path: Path, data: dict, mode: int = 0o600) -> None:
+    """Escribe KEY=VALUE (sin comentarios). Usado para regrabar compose/.env."""
+    import os
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = "\n".join(f"{k}={v}" for k, v in data.items()) + "\n"
+    path.write_text(body, encoding="utf-8")
+    os.chmod(path, mode)

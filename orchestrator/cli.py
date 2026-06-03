@@ -79,8 +79,22 @@ def cmd_init(args):
     print(f"  Setup:  https://{answers['domain']}/#/setup?token={secrets['INIT_TOKEN']}")
 
 
+_TAG_VARS = {"tag": "TAG", "server": "SERVER_TAG", "web": "WEB_TAG",
+             "wa": "WA_TAG", "mk": "MK_TAG"}
+
+
 def cmd_update(args):
     cfg = _require_configured()
+
+    # Overrides de tag por servicio: persistirlos en compose/.env antes de
+    # pull/up. Sin overrides, recrea con los tags actuales (comportamiento previo).
+    overrides = {_TAG_VARS[k]: getattr(args, k) for k in _TAG_VARS
+                 if getattr(args, k, None)}
+    if overrides:
+        cfg.update(overrides)
+        config.write_env_file(config.COMPOSE_ENV, cfg)
+        print("→ Tags fijados: " + ", ".join(f"{k}={v}" for k, v in overrides.items()))
+
     env = cfg.get("APP_ENV", "prod")
     print("→ Bajando imágenes nuevas…")
     runner.compose(["pull"], env)
@@ -159,6 +173,11 @@ def build_parser():
     pi.set_defaults(func=cmd_init)
 
     pu = sub.add_parser("update", help="Baja imágenes nuevas, migra y recrea")
+    pu.add_argument("--tag", help="Fija el TAG global de todos los servicios")
+    pu.add_argument("--server", help="Fija solo el tag de wisnet-server")
+    pu.add_argument("--web", help="Fija solo el tag del frontend (wisnet)")
+    pu.add_argument("--wa", help="Fija solo el tag de wa-bridge")
+    pu.add_argument("--mk", help="Fija solo el tag de mk-bridge")
     pu.set_defaults(func=cmd_update)
 
     ps = sub.add_parser("seed", help="(Demo) resetea la BD y siembra datos demo")
