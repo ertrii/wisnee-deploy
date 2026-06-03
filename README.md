@@ -2,9 +2,40 @@
 
 Orquestación del stack Wisnee en un VPS (Ubuntu Server 24.04+). Las imágenes se
 bajan de **GHCR** (no se buildea en el server). Dos entornos: **prod** y **demo**
-(este último con seed). El orquestador en Python + Ansible (Fases 3–4) genera los
-`.env` con secrets autogenerados y maneja el sistema; acá vive la capa de runtime
-(docker compose) y el reverse proxy.
+(este último con seed). Un CLI en **Python** (`./wisnee`) + **Ansible** generan
+los `.env` con secrets autogenerados y manejan el sistema; **docker compose** es
+la capa de runtime.
+
+## Instalación rápida (en el VPS)
+
+```bash
+# 1. Crear el droplet con tu llave SSH (Ubuntu 24.04). Recomendado: 4 GB para prod.
+# 2. Apuntar el DNS del dominio a la IP del droplet.
+# 3. En el server (como root):
+git clone https://github.com/ertrii/wisnee-deploy.git /opt/wisnee
+cd /opt/wisnee
+sudo ./wisnee init        # pregunta dominio, email, GHCR, etc. y levanta todo
+```
+
+`init` hace: prompts → **autogenera todos los secrets** → render de `env/*` y
+nginx → Ansible (docker, swap, UFW, fail2ban, SSH key-only) → `docker login` +
+`pull` → migrate → `up` → emite el certificado TLS → escribe
+`/tmp/wisnee-credentials.txt` (con la URL de setup + `INIT_TOKEN`).
+
+## Comandos
+
+```bash
+sudo ./wisnee init [--force] [--skip-provision] [--no-harden]
+./wisnee update        # baja imágenes nuevas, migra y recrea (actualizaciones)
+./wisnee status        # docker compose ps
+./wisnee logs [svc]    # logs en vivo
+./wisnee seed          # (solo Demo) resetea la BD y siembra datos
+./wisnee cert          # emite/renueva el certificado (recuperación)
+./wisnee backup        # pg_dump → backups/
+./wisnee credentials   # muestra el credentials.txt
+```
+
+> Requiere `python3` (viene en Ubuntu) y, para `init`, permisos de root.
 
 ## Estructura
 

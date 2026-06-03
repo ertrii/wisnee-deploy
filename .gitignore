@@ -6,4 +6,11 @@ nginx/default.conf
 # Sistema / credenciales entregadas
 credentials.txt
 *.log
+
+# Backups (dumps de Postgres)
+backups/
+*.sql
+
+# Python
 __pycache__/
+*.pyc
