@@ -70,5 +70,14 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto https;
+
+        # La imagen del frontend es genérica (un solo build para todos los
+        # dominios), así que og:image va con ruta relativa /og-image.png. Pero
+        # WhatsApp/Facebook NO resuelven og:image relativo → la reescribimos a
+        # absoluta acá, donde sí conocemos ${DOMAIN}. Pedimos sin compresión al
+        # upstream para que sub_filter pueda operar sobre el HTML.
+        proxy_set_header Accept-Encoding "";
+        sub_filter_once off;
+        sub_filter 'content="/og-image.png"' 'content="https://${DOMAIN}/og-image.png"';
     }
 }

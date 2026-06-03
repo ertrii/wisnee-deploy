@@ -96,10 +96,25 @@ def cmd_update(args):
         print("→ Tags fijados: " + ", ".join(f"{k}={v}" for k, v in overrides.items()))
 
     env = cfg.get("APP_ENV", "prod")
+
+    # Re-renderizar nginx por si cambió el template (p. ej. sub_filter de
+    # og:image). Es idempotente y barato.
+    domain = cfg.get("DOMAIN")
+    if domain:
+        render.render_nginx(domain)
+
     print("→ Bajando imágenes nuevas…")
     runner.compose(["pull"], env)
     print("→ Aplicando (migrate one-shot corre antes del server)…")
     runner.compose(["up", "-d"], env)
+
+    # Aplicar el nginx re-renderizado (el bind mount ya está; basta un reload).
+    if domain:
+        try:
+            runner.nginx_reload(env)
+        except subprocess.CalledProcessError:
+            pass  # el proxy se recrea con up -d si hiciera falta
+
     print("✔ Actualizado.")
 
 

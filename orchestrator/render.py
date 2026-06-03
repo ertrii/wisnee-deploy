@@ -72,7 +72,13 @@ def render(answers: dict, secrets: dict) -> None:
         "CERTBOT_EMAIL": answers["email"],
     })
 
-    # nginx: solo sustituimos ${DOMAIN} (las demás $vars son de nginx).
+    render_nginx(domain)
+
+
+def render_nginx(domain: str) -> None:
+    """Renderiza nginx/default.conf desde el template sustituyendo solo
+    ${DOMAIN} (las demás $vars son de nginx). Se llama en init y en update
+    para que cambios del template se apliquen sin re-init."""
     template = config.NGINX_TEMPLATE.read_text(encoding="utf-8")
     config.NGINX_CONF.write_text(
         template.replace("${DOMAIN}", domain), encoding="utf-8"
