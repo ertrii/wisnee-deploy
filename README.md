@@ -1,5 +1,7 @@
 # wisnee-deploy
 
+[![Release](https://github.com/ertrii/wisnee-deploy/actions/workflows/release.yml/badge.svg)](https://github.com/ertrii/wisnee-deploy/actions/workflows/release.yml)
+
 Orquestación del stack Wisnee en un VPS (Ubuntu Server 24.04+). Las imágenes se
 bajan de **GHCR** (no se buildea en el server). Dos entornos: **prod** y **demo**
 (este último con seed). Un CLI en **Python** (`./wisnee`) + **Ansible** generan
