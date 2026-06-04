@@ -23,9 +23,9 @@ def public_ip() -> str:
 def write(answers: dict, secrets: dict):
     domain = answers["domain"]
     ip = public_ip()
-    # El wizard de bootstrap vive en la RAÍZ del hash-router ("/"), no en
-    # "/setup" (esa ruta no existe → pantalla en blanco).
-    setup_url = f"https://{domain}/#/?token={secrets['INIT_TOKEN']}"
+    # El wizard de bootstrap vive en la RAÍZ del SPA ("/"). Con history
+    # routing (BrowserRouter) la URL es limpia, sin hash.
+    setup_url = f"https://{domain}/?token={secrets['INIT_TOKEN']}"
     ts = datetime.datetime.now().isoformat(timespec="seconds")
 
     content = f"""WISNEE - credenciales de instalacion ({ts})

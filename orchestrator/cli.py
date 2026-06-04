@@ -76,7 +76,7 @@ def cmd_init(args):
 
     path = credentials.write(answers, secrets)
     print(f"\n✔ Listo. Credenciales en: {path}")
-    print(f"  Setup:  https://{answers['domain']}/#/?token={secrets['INIT_TOKEN']}")
+    print(f"  Setup:  https://{answers['domain']}/?token={secrets['INIT_TOKEN']}")
 
 
 _TAG_VARS = {"tag": "TAG", "server": "SERVER_TAG", "web": "WEB_TAG",
