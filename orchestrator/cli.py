@@ -90,10 +90,20 @@ def cmd_update(args):
     # pull/up. Sin overrides, recrea con los tags actuales (comportamiento previo).
     overrides = {_TAG_VARS[k]: getattr(args, k) for k in _TAG_VARS
                  if getattr(args, k, None)}
-    if overrides:
+    # Un `--tag` global expresa "todos los servicios a esta versión": limpia los
+    # pines por-servicio (WEB_TAG/SERVER_TAG/...) que hayan quedado de un deploy
+    # `--web`/`--server` previo, salvo los que se vuelvan a pasar explícito ahora.
+    # Sin esto, el compose `${WEB_TAG:-${TAG:-latest}}` deja el pin viejo ganando
+    # sobre `--tag` y un servicio se queda atrás en la versión anterior.
+    if args.tag:
+        for var in ("SERVER_TAG", "WEB_TAG", "WA_TAG", "MK_TAG"):
+            if var not in overrides:
+                cfg.pop(var, None)
+    if overrides or args.tag:
         cfg.update(overrides)
         config.write_env_file(config.COMPOSE_ENV, cfg)
-        print("→ Tags fijados: " + ", ".join(f"{k}={v}" for k, v in overrides.items()))
+        print("→ Tags fijados: " + ", ".join(f"{k}={v}" for k, v in cfg.items()
+                                              if k in _TAG_VARS.values()))
 
     env = cfg.get("APP_ENV", "prod")
 
