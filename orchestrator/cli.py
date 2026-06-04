@@ -137,7 +137,10 @@ def cmd_seed(args):
         ans = input("Esto BORRA la base y siembra datos demo. ¿Seguir? (escribí 'demo'): ")
         if ans.strip() != "demo":
             _die("Cancelado.")
-    runner.compose(["run", "--rm", "seed"], env)
+    # SEED_FORCE=1: el comando explícito SÍ resetea. El seed automático del
+    # `up -d` corre sin esta variable → es seed-once (no borra si ya hay datos),
+    # para que un `update` no destruya lo creado a mano en la demo.
+    runner.compose(["run", "--rm", "-e", "SEED_FORCE=1", "seed"], env)
     print("✔ Seed aplicado.")
 
 
