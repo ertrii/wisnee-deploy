@@ -51,7 +51,15 @@ services:
       migrate:
         condition: service_completed_successfully
     volumes:
-      - server-public:/app/public
+      # SOLO los subdirectorios de SUBIDAS van a volúmenes (persisten entre
+      # versiones). El resto de /app/public (css y images HORNEADOS en la imagen)
+      # llega de la imagen y se refresca en cada deploy. Montar TODO /app/public
+      # en un volumen tapaba los estáticos nuevos de la imagen (Docker no re-
+      # siembra un volumen ya existente) → comprobantes sin CSS ni logo.
+      - server-logos:/app/public/logos
+      - server-avatars:/app/public/avatars
+      - server-payment-attachments:/app/public/payment-attachments
+      - server-expense-attachments:/app/public/expense-attachments
       - server-storage:/app/storage
     expose: ["4000"]
     healthcheck:
@@ -101,7 +109,10 @@ services:
 
 volumes:
   db-data:
-  server-public:
+  server-logos:
+  server-avatars:
+  server-payment-attachments:
+  server-expense-attachments:
   server-storage:
   certbot-webroot:
   certbot-conf:
