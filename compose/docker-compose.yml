@@ -32,7 +32,7 @@ services:
   # Usa el binario typeorm (dep de prod) — NO `npm run migration:run:prod`,
   # que depende de cross-env (devDependency ausente en la imagen de runtime).
   migrate:
-    image: ghcr.io/ertrii/wisnet-server:${SERVER_TAG:-${TAG:-latest}}
+    image: ghcr.io/getwisnee/wisnet-server:${SERVER_TAG:-${TAG:-latest}}
     restart: "no"
     env_file: [../env/server.env]
     command: ["npx", "typeorm", "migration:run", "-d", "build/config/db-source.js"]
@@ -42,7 +42,7 @@ services:
     networks: [wisnee]
 
   server:
-    image: ghcr.io/ertrii/wisnet-server:${SERVER_TAG:-${TAG:-latest}}
+    image: ghcr.io/getwisnee/wisnet-server:${SERVER_TAG:-${TAG:-latest}}
     restart: unless-stopped
     env_file: [../env/server.env]
     depends_on:
@@ -75,7 +75,7 @@ services:
     networks: [wisnee]
 
   web:
-    image: ghcr.io/ertrii/wisnet:${WEB_TAG:-${TAG:-latest}}
+    image: ghcr.io/getwisnee/wisnet:${WEB_TAG:-${TAG:-latest}}
     restart: unless-stopped
     expose: ["80"]
     networks: [wisnee]

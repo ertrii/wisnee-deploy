@@ -1,6 +1,6 @@
 # wisnee-deploy
 
-[![Release](https://github.com/ertrii/wisnee-deploy/actions/workflows/release.yml/badge.svg)](https://github.com/ertrii/wisnee-deploy/actions/workflows/release.yml)
+[![Release](https://github.com/getwisnee/wisnee-deploy/actions/workflows/release.yml/badge.svg)](https://github.com/getwisnee/wisnee-deploy/actions/workflows/release.yml)
 
 Orquestación del stack Wisnee en un VPS (Ubuntu Server 24.04+). Las imágenes se
 bajan de **GHCR** (no se buildea en el server). Dos entornos: **prod** y **demo**
@@ -16,7 +16,7 @@ El **mismo** flujo en cada máquina nueva (prod o demo): clonar + `init`.
 # 1. Crear el droplet con tu llave SSH (Ubuntu 24.04). Recomendado: 4 GB para prod, 2 GB para demo.
 # 2. Apuntar el DNS del dominio a la IP del droplet (necesario ANTES del init: certbot lo valida).
 # 3. En el server (como root):
-git clone https://github.com/ertrii/wisnee-deploy.git /opt/wisnee
+git clone https://github.com/getwisnee/wisnee-deploy.git /opt/wisnee
 cd /opt/wisnee
 sudo ./wisnee init        # pregunta dominio, email, GHCR, tag, etc. y levanta todo
 ```

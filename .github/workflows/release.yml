@@ -23,7 +23,7 @@ permissions:
   contents: read
 
 env:
-  OWNER: ertrii
+  OWNER: getwisnee
 
 jobs:
   promote:
