@@ -202,8 +202,8 @@ def build_parser():
 
     pu = sub.add_parser("update", help="Baja imágenes nuevas, migra y recrea")
     pu.add_argument("--tag", help="Fija el TAG global de todos los servicios")
-    pu.add_argument("--server", help="Fija solo el tag de wisnet-server")
-    pu.add_argument("--web", help="Fija solo el tag del frontend (wisnet)")
+    pu.add_argument("--server", help="Fija solo el tag de wisnee-server")
+    pu.add_argument("--web", help="Fija solo el tag del frontend (wisnee)")
     pu.add_argument("--wa", help="Fija solo el tag de wa-bridge")
     pu.add_argument("--mk", help="Fija solo el tag de mk-bridge")
     pu.set_defaults(func=cmd_update)

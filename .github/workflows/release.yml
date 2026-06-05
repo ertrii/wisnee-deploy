@@ -52,9 +52,9 @@ jobs:
             echo "→ $img:$3  ⇐  $img:$2"
             docker buildx imagetools create -t "$img:$3" "$img:$2"
           }
-          retag wisnet-server "$S"          "$V"
-          retag wisnet-server "${S}-seed"   "${V}-seed"
-          retag wisnet        "$S"          "$V"
+          retag wisnee-server "$S"          "$V"
+          retag wisnee-server "${S}-seed"   "${V}-seed"
+          retag wisnee        "$S"          "$V"
           retag wa-bridge     "$S"          "$V"
           retag mk-bridge     "$S"          "$V"
           echo "::notice::Release $V listo. Desplegá: ./wisnee update --tag $V"
