@@ -29,4 +29,5 @@ def generate() -> dict:
         "FISCAL_ENCRYPTION_KEY": b64key(32),
         "WA_BRIDGE_SECRET": token(32),
         "MK_BRIDGE_SECRET": token(32),
+        "VPN_HUB_SECRET": token(32),
     }

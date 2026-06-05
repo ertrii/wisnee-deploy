@@ -1,5 +1,5 @@
-# Overlay de PRODUCCIÓN: agrega los bridges (mk-bridge, wa-bridge) al stack base.
-# Demo no los levanta (entorno core-only).
+# Overlay de PRODUCCIÓN: agrega los bridges (mk-bridge, wa-bridge, vpn-hub) al
+# stack base. Demo no los levanta (entorno core-only).
 #
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
@@ -34,6 +34,38 @@ services:
     expose: ["4200"]
     networks: [wisnee]
 
+  # vpn-hub: concentrador SSTP para Mikrotiks bajo CGNAT con RouterOS 6 (sin
+  # WireGuard). El router abre un túnel SSTP saliente hacia acá; el server
+  # consume la API de control (4300) por la red interna.
+  #
+  # VERIFICAR EN LINUX (no probado): falta validar el ruteo entre containers.
+  # Para que mk-bridge alcance el RouterOS API de los Mikrotik por la IP de
+  # gestión (pool SSTP, default 10.254.0.0/24), mk-bridge necesita una ruta
+  # a ese pool vía la IP de vpn-hub en la red `wisnee` (y vpn-hub ya hace
+  # ip_forward). Hoy mk-bridge no agrega esa ruta — resolver en el ops step
+  # (ruta estática en el host/container o `network_mode: service:vpn-hub`).
+  vpn-hub:
+    image: ghcr.io/getwisnee/vpn-hub:${VPN_HUB_TAG:-${TAG:-latest}}
+    restart: unless-stopped
+    env_file: [../env/vpn-hub.env]
+    cap_add: [NET_ADMIN]
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    sysctls:
+      - net.ipv4.ip_forward=1
+    volumes:
+      # State persistente: cert SSTP + asignación de IPs (no regenerar entre
+      # deploys, rompería los túneles ya configurados).
+      - vpn-hub-state:/var/lib/vpn-hub
+    # SSTP público en 1443 (TCP): el 443 lo ocupa el proxy nginx. El operador
+    # apunta el sstp-client a host:1443 (el script generado ya lo refleja).
+    # SSTP_LISTEN_PORT debe valer 1443 en ../env/vpn-hub.env.
+    ports:
+      - "${SSTP_LISTEN_PORT:-1443}:1443/tcp"
+    expose: ["4300"]
+    networks: [wisnee]
+
 volumes:
   wa-session:
   mk-wireguard:
+  vpn-hub-state:

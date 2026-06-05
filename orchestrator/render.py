@@ -42,6 +42,8 @@ def render(answers: dict, secrets: dict) -> None:
         "WA_BRIDGE_SECRET": secrets["WA_BRIDGE_SECRET"],
         "MK_BRIDGE_URL": "http://mk-bridge:4200",
         "MK_BRIDGE_SECRET": secrets["MK_BRIDGE_SECRET"],
+        "VPN_HUB_URL": "http://vpn-hub:4300",
+        "VPN_HUB_SECRET": secrets["VPN_HUB_SECRET"],
         "MAIL_HOST": answers.get("mail_host", ""),
         "MAIL_USER": answers.get("mail_user", ""),
         "MAIL_PASSWORD": answers.get("mail_password", ""),
@@ -62,12 +64,27 @@ def render(answers: dict, secrets: dict) -> None:
         "WG_REVERSE_PUBLIC_ENDPOINT": answers["wg_endpoint"],
     })
 
+    # vpn-hub: concentrador SSTP (Mikrotiks bajo CGNAT con RouterOS 6). El
+    # SSTP escucha en 1443 (el 443 lo usa el proxy). SSTP_PUBLIC_HOST es el
+    # dominio: resuelve al mismo VPS, y el sstp-client del Mikrotik se conecta
+    # a <dominio>:1443. El pool de gestión usa el default del servicio.
+    _write_env(config.ENV_DIR / "vpn-hub.env", {
+        "PORT": "4300",
+        "INTERNAL_SECRET": secrets["VPN_HUB_SECRET"],
+        "DRY": "false",
+        "SSTP_PUBLIC_HOST": domain,
+        "SSTP_LISTEN_PORT": "1443",
+    })
+
     # No es secreto, pero lo dejamos 600 por consistencia.
     _write_env(config.COMPOSE_ENV, {
         "TAG": answers["tag"],
         "DOMAIN": domain,
         "APP_ENV": answers["env"],
         "WG_REVERSE_LISTEN_PORT": answers["wg_port"],
+        # Puerto TCP público del SSTP (el 443 lo usa el proxy). El compose lo
+        # publica como ${SSTP_LISTEN_PORT:-1443}.
+        "SSTP_LISTEN_PORT": "1443",
         # No lo usa compose; lo guardamos para el comando `cert` (recuperación).
         "CERTBOT_EMAIL": answers["email"],
     })
