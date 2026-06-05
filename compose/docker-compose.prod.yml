@@ -6,6 +6,30 @@
 name: wisnee
 
 services:
+  # One-shot: copia los artefactos del Chat Node para Windows (instalador
+  # PowerShell + paquete del bridge) al volumen que el server sirve bajo
+  # /api/chat-node/*. Corre en cada deploy para refrescarlos a la versión
+  # desplegada. El volumen es el mismo `server-storage` que monta el server
+  # (acá en /storage → allá en /app/storage), así CHAT_NODE_DIST_DIR cae en su
+  # default /app/storage/chat-node-dist sin configurar nada.
+  chat-node-assets:
+    image: ghcr.io/getwisnee/wa-bridge-win-dist:${WINDIST_TAG:-${TAG:-latest}}
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - "mkdir -p /storage/chat-node-dist && cp -f /dist/wa-bridge-win.zip /dist/chat-node.ps1 /storage/chat-node-dist/"
+    volumes:
+      - server-storage:/storage
+    networks: [wisnee]
+
+  # El server espera a que los artefactos estén en el volumen para no servir un
+  # 404 en /api/chat-node/* justo tras el `up` (merge con el server del base).
+  server:
+    depends_on:
+      chat-node-assets:
+        condition: service_completed_successfully
+
   wa-bridge:
     image: ghcr.io/getwisnee/wa-bridge:${WA_TAG:-${TAG:-latest}}
     restart: unless-stopped
