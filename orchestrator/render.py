@@ -29,7 +29,6 @@ def render(answers: dict, secrets: dict) -> None:
         "HTTPS": "true",
         "PUBLIC_BASE_URL": base_url,
         "CORS_ORIGIN": base_url,
-        "BASE_PATH": "",
         "DB_HOST": "db",
         "DB_PORT": "5432",
         "DB_USERNAME": config.DB_USER,
@@ -44,9 +43,6 @@ def render(answers: dict, secrets: dict) -> None:
         "MK_BRIDGE_SECRET": secrets["MK_BRIDGE_SECRET"],
         "VPN_HUB_URL": "http://vpn-hub:4300",
         "VPN_HUB_SECRET": secrets["VPN_HUB_SECRET"],
-        "MAIL_HOST": answers.get("mail_host", ""),
-        "MAIL_USER": answers.get("mail_user", ""),
-        "MAIL_PASSWORD": answers.get("mail_password", ""),
     })
 
     _write_env(config.ENV_DIR / "wa-bridge.env", {

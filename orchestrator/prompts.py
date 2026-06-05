@@ -51,7 +51,4 @@ def ask_init() -> dict:
         "ghcr_token": ghcr_token,
         "wg_port": wg_port,
         "wg_endpoint": wg_endpoint,
-        "mail_host": "",
-        "mail_user": "",
-        "mail_password": "",
     }
