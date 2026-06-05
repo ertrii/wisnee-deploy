@@ -113,6 +113,11 @@ def cmd_update(args):
     if domain:
         render.render_nginx(domain)
 
+    # Poda ANTES del pull: en un droplet chico las versiones viejas llenan el
+    # disco y el pull falla con "no space left on device". Borrar imágenes sin
+    # usar libera ese espacio sin tocar volúmenes ni la versión en ejecución.
+    print("→ Liberando espacio (imágenes sin usar)…")
+    runner.docker_prune()
     print("→ Bajando imágenes nuevas…")
     runner.compose(["pull"], env)
     print("→ Aplicando (migrate one-shot corre antes del server)…")

@@ -34,6 +34,15 @@ def docker_login(user: str, token: str):
         input_text=token)
 
 
+def docker_prune():
+    """Libera espacio antes de un pull: borra imágenes sin usar (versiones
+    viejas, imágenes huérfanas de otra org/tag) y su build cache. NO toca
+    volúmenes ni las imágenes de los contenedores en ejecución (la versión
+    vigente queda protegida hasta que el `up -d` la reemplace). check=False:
+    una poda fallida no debe abortar el update."""
+    run(["docker", "image", "prune", "-af"], check=False)
+
+
 # ---- Ansible ----
 
 def ensure_ansible():
