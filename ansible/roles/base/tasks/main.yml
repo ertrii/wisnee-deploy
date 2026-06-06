@@ -19,10 +19,11 @@
     update_cache: true
     cache_valid_time: 3600
 
-# ---- Módulos PPP (vpn-hub/SSTP: accel-ppp necesita /dev/ppp + MPPE) ----
+# ---- Módulos PPP (vpn-hub/SSTP: pppd necesita /dev/ppp) ----
 # ppp_generic crea /dev/ppp (que el compose pasa al container de vpn-hub para
-# que accel-ppp levante las interfaces PPP del SSTP); ppp_mppe habilita la
-# encriptación MPPE que pide el perfil de RouterOS (use-encryption=yes).
+# que pppd —motor de sstp-server— levante las interfaces PPP del SSTP). El túnel
+# va cifrado por TLS y no usa MPPE, pero dejamos ppp_mppe cargado por si algún
+# perfil de RouterOS lo negocia.
 - name: Cargar módulos PPP
   community.general.modprobe:
     name: "{{ item }}"
