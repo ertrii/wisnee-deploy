@@ -56,6 +56,22 @@ server {
         proxy_read_timeout 3600s;
     }
 
+    # WebSocket dial-home del Chat Node (wa-bridge) → backend. El Chat Node del
+    # operador disca a wss://${DOMAIN}/internal/wa-bridge-link (se autentica por
+    # header x-internal-secret). Sin esta location caería en `location /` (SPA)
+    # y el WS nunca llegaría al server → el Chat Node figura DESCONECTADO.
+    location /internal/ {
+        proxy_pass http://server:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 3600s;
+    }
+
     # Estáticos servidos por el server bajo /public (logos, adjuntos).
     location /public/ {
         proxy_pass http://server:4000;
