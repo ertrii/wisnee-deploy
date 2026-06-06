@@ -19,6 +19,28 @@
     update_cache: true
     cache_valid_time: 3600
 
+# ---- Módulos PPP (vpn-hub/SSTP: accel-ppp necesita /dev/ppp + MPPE) ----
+# ppp_generic crea /dev/ppp (que el compose pasa al container de vpn-hub para
+# que accel-ppp levante las interfaces PPP del SSTP); ppp_mppe habilita la
+# encriptación MPPE que pide el perfil de RouterOS (use-encryption=yes).
+- name: Cargar módulos PPP
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - ppp_generic
+    - ppp_mppe
+
+- name: Persistir módulos PPP en el arranque
+  ansible.builtin.copy:
+    dest: /etc/modules-load.d/wisnee-ppp.conf
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      ppp_generic
+      ppp_mppe
+
 # ---- Swap (red de seguridad anti-OOM de Chromium) ----
 - name: ¿Existe el swapfile?
   ansible.builtin.stat:

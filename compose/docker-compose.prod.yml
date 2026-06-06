@@ -75,6 +75,11 @@ services:
     cap_add: [NET_ADMIN]
     devices:
       - /dev/net/tun:/dev/net/tun
+      # accel-ppp crea las interfaces PPP del SSTP vía /dev/ppp. Sin este device
+      # el túnel termina el TLS y el control SSTP pero NO levanta PPP → "started
+      # → disconnected". Requiere el módulo ppp_generic cargado en el host (lo
+      # hace el provisioning de Ansible: base/tasks carga ppp_generic+ppp_mppe).
+      - /dev/ppp:/dev/ppp
     sysctls:
       - net.ipv4.ip_forward=1
     volumes:
