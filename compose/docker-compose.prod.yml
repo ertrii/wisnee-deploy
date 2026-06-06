@@ -57,6 +57,11 @@ services:
       - "${WG_REVERSE_LISTEN_PORT:-51820}:51820/udp"
     expose: ["4200"]
     networks: [wisnee]
+    # Arrancar después de vpn-hub: el entrypoint de mk-bridge resuelve su IP por
+    # DNS para agregar la ruta al pool de gestión SSTP (10.254.0.0/24). Si
+    # recreás vpn-hub con otra IP, reiniciá mk-bridge para refrescar la ruta.
+    depends_on:
+      - vpn-hub
 
   # vpn-hub: concentrador SSTP para Mikrotiks bajo CGNAT con RouterOS 6 (sin
   # WireGuard). El router abre un túnel SSTP saliente hacia acá; el server
