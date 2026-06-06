@@ -1,8 +1,8 @@
 name: Release
 
-# Arma un release COHERENTE: fotografía los `:edge` actuales de los 6 artefactos
-# (server, server-seed, web, wa-bridge, mk-bridge, vpn-hub) en un tag de versión
-# inmutable y compartido `vX.Y.Z`. NO recompila nada — `docker buildx imagetools
+# Arma un release COHERENTE: fotografía los `:edge` actuales de los artefactos
+# (server, server-seed, web, wa-bridge, wa-bridge-win-dist, mk-bridge, vpn-hub)
+# en un tag de versión inmutable y compartido `vX.Y.Z`. NO recompila nada — `docker buildx imagetools
 # create` copia el manifest en el registry (instantáneo). Así todos los
 # servicios quedan pineados a una sola versión y el rollback es trivial.
 #
@@ -56,6 +56,7 @@ jobs:
           retag wisnee-server "${S}-seed"   "${V}-seed"
           retag wisnee        "$S"          "$V"
           retag wa-bridge     "$S"          "$V"
+          retag wa-bridge-win-dist "$S"     "$V"
           retag mk-bridge     "$S"          "$V"
           retag vpn-hub       "$S"          "$V"
           echo "::notice::Release $V listo. Desplegá: ./wisnee update --tag $V"
