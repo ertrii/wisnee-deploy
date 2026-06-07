@@ -57,22 +57,19 @@ services:
       - "${WG_REVERSE_LISTEN_PORT:-51820}:51820/udp"
     expose: ["4200"]
     networks: [wisnee]
-    # Arrancar después de vpn-hub: el entrypoint de mk-bridge resuelve su IP por
-    # DNS para agregar la ruta al pool de gestión SSTP (10.254.0.0/24). Si
-    # recreás vpn-hub con otra IP, reiniciá mk-bridge para refrescar la ruta.
+    # Arrancar después de vpn-hub: el entrypoint de mk-bridge agrega la ruta al
+    # pool de gestión SSTP (10.254.0.0/24) vía la IP de vpn-hub. Esa IP Docker no
+    # es estable entre recreates, por eso el entrypoint corre un "route keeper"
+    # que la refresca solo — ya NO hay que reiniciar mk-bridge a mano.
     depends_on:
       - vpn-hub
 
   # vpn-hub: concentrador SSTP para Mikrotiks bajo CGNAT con RouterOS 6 (sin
   # WireGuard). El router abre un túnel SSTP saliente hacia acá; el server
-  # consume la API de control (4300) por la red interna.
-  #
-  # VERIFICAR EN LINUX (no probado): falta validar el ruteo entre containers.
-  # Para que mk-bridge alcance el RouterOS API de los Mikrotik por la IP de
-  # gestión (pool SSTP, default 10.254.0.0/24), mk-bridge necesita una ruta
-  # a ese pool vía la IP de vpn-hub en la red `wisnee` (y vpn-hub ya hace
-  # ip_forward). Hoy mk-bridge no agrega esa ruta — resolver en el ops step
-  # (ruta estática en el host/container o `network_mode: service:vpn-hub`).
+  # consume la API de control (4300) por la red interna. mk-bridge alcanza el
+  # RouterOS API / ping de los Mikrotik por la IP de gestión gracias a la ruta
+  # que mantiene su route keeper hacia este container (que hace ip_forward +
+  # MASQUERADE -o ppp+). Validado en Linux 2026-06-07.
   vpn-hub:
     image: ghcr.io/getwisnee/vpn-hub:${VPN_HUB_TAG:-${TAG:-latest}}
     restart: unless-stopped
