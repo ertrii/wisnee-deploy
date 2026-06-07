@@ -107,6 +107,14 @@ def cmd_update(args):
 
     env = cfg.get("APP_ENV", "prod")
 
+    # Reconciliar env/secrets de servicios que el stack agregó después de la
+    # instalación de este droplet (mk-bridge, vpn-hub): crea los env faltantes
+    # sin tocar los secrets/datos existentes. Sin esto, un droplet viejo aborta
+    # el `up -d` con 'env file env/vpn-hub.env not found'.
+    created = render.reconcile_service_envs()
+    if created:
+        print("→ Config de servicios reconciliada: " + ", ".join(created))
+
     # Re-renderizar nginx por si cambió el template (p. ej. sub_filter de
     # og:image). Es idempotente y barato.
     domain = cfg.get("DOMAIN")
