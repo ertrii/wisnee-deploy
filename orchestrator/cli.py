@@ -1,8 +1,9 @@
-"""CLI del orquestador. Comandos: init, update, seed, logs, status, backup,
-cert, credentials."""
+"""CLI del orquestador. Comandos: init, update, domain, seed, logs, status,
+backup, cert, credentials."""
 
 import argparse
 import datetime
+import re
 import subprocess
 import sys
 
@@ -180,6 +181,70 @@ def cmd_cert(args):
     print("✔ Certificado emitido/renovado.")
 
 
+# FQDN simple (incluye subdominios tipo cliente.wisnee.com). Sin esquema ni path.
+_DOMAIN_RE = re.compile(
+    r"^(?=.{1,253}$)([a-z0-9](-*[a-z0-9])*\.)+[a-z]{2,}$"
+)
+
+
+def cmd_domain(args):
+    """Cambia el dominio del deployment de punta a punta: actualiza los env que
+    derivan del dominio (PUBLIC_BASE_URL/CORS, SSTP, WG), re-renderiza nginx,
+    re-emite el certificado TLS y recrea los servicios afectados. Un cliente por
+    deploy: pensado para mover un cliente a su `cliente.wisnee.com`."""
+    cfg = _require_configured()
+    new = args.domain.strip().lower().rstrip(".")
+    if not _DOMAIN_RE.match(new):
+        _die(f"Dominio inválido: '{new}'. Usá un FQDN, ej. cliente.wisnee.com "
+             "(sin http:// ni barra final).")
+
+    old = cfg.get("DOMAIN", "")
+    if new == old:
+        _die(f"El dominio ya es {new}. Para re-emitir el certificado: ./wisnee cert")
+
+    email = cfg.get("CERTBOT_EMAIL", "")
+    env = cfg.get("APP_ENV", "prod")
+
+    if not args.yes:
+        print(f"\nCambiar dominio:  {old or '(ninguno)'}  →  {new}")
+        print(f"  El A record de {new} TIENE que apuntar ya a ESTE server; si no,")
+        print("  la emisión del certificado (validación HTTP) va a fallar.")
+        ans = input("  Para confirmar, escribí el dominio nuevo: ")
+        if ans.strip().lower() != new:
+            _die("Cancelado.")
+
+    print("\n→ Actualizando configuración (env + nginx)…")
+    info = render.repoint_domain(new)
+
+    print("→ Placeholder TLS + recreando proxy…")
+    runner.dummy_cert(new)
+    runner.compose(["up", "-d", "--force-recreate", "proxy"], env)
+
+    print("→ Emitiendo certificado real…")
+    try:
+        runner.certbot_issue(new, email, env)
+        runner.nginx_reload(env)
+    except subprocess.CalledProcessError as e:
+        print(f"\n⚠ No se pudo emitir el certificado ({e}).")
+        print(f"  Verificá el DNS de {new} y reintentá: ./wisnee cert")
+        print("  (el sitio sigue arriba con un certificado temporal.)")
+
+    # Recrear los servicios que leen el dominio por env (compose no recrea solo
+    # cuando cambia el contenido de un env_file). server siempre; los bridges
+    # solo en prod, donde existen.
+    recreate = ["server"]
+    if env == "prod":
+        recreate += [s for s in ("vpn-hub", "mk-bridge") if s in info["changed"]]
+    print(f"→ Recreando servicios: {', '.join(recreate)}…")
+    runner.compose(["up", "-d", "--force-recreate"] + recreate, env)
+
+    print(f"\n✔ Dominio actualizado a {new}.")
+    print(f"  Probá: https://{new}/")
+    if old:
+        print(f"  (El cert viejo de {old} queda guardado; el auto-renew lo "
+              "ignorará una vez que el DNS deje de apuntar acá.)")
+
+
 def cmd_backup(args):
     cfg = _require_configured()
     env = cfg.get("APP_ENV", "prod")
@@ -220,6 +285,11 @@ def build_parser():
     pu.add_argument("--wa", help="Fija solo el tag de wa-bridge")
     pu.add_argument("--mk", help="Fija solo el tag de mk-bridge")
     pu.set_defaults(func=cmd_update)
+
+    pd = sub.add_parser("domain", help="Cambia el dominio del deployment (re-renderiza nginx y re-emite el cert)")
+    pd.add_argument("domain", help="Nuevo dominio o subdominio (ej. cliente.wisnee.com)")
+    pd.add_argument("--yes", action="store_true", help="Sin confirmación")
+    pd.set_defaults(func=cmd_domain)
 
     ps = sub.add_parser("seed", help="(Demo) resetea la BD y siembra datos demo")
     ps.add_argument("--yes", action="store_true", help="Sin confirmación")

@@ -180,3 +180,59 @@ def render_nginx(domain: str) -> None:
     config.NGINX_CONF.write_text(
         template.replace("${DOMAIN}", domain), encoding="utf-8"
     )
+
+
+def repoint_domain(new_domain: str) -> dict:
+    """Reapunta el deployment a un dominio nuevo. Actualiza todo lo que deriva
+    del dominio web, SIN tocar secrets ni la BD:
+      - compose/.env: DOMAIN.
+      - server.env: PUBLIC_BASE_URL y CORS_ORIGIN (sin esto el front en el
+        dominio nuevo se bloquea por CORS y el link del Chat Node queda viejo).
+      - vpn-hub.env: SSTP_PUBLIC_HOST — solo si seguía igual al dominio viejo
+        (no pisar un host puesto a mano).
+      - mk-bridge.env: WG_REVERSE_PUBLIC_ENDPOINT — el endpoint WG es
+        independiente (puede ser una IP cruda), así que solo se reapunta si su
+        host era el dominio viejo.
+    Re-renderiza nginx. NO toca certbot ni contenedores (eso lo hace el comando
+    `domain`). Devuelve {old, changed:[servicios cuyo env cambió y hay que
+    recrear]}.
+    """
+    base_url = f"https://{new_domain}"
+    compose = config.read_env_file(config.COMPOSE_ENV)
+    old_domain = compose.get("DOMAIN", "")
+    changed = []
+
+    compose["DOMAIN"] = new_domain
+    config.write_env_file(config.COMPOSE_ENV, compose)
+
+    server_path = config.ENV_DIR / "server.env"
+    server = config.read_env_file(server_path)
+    if server:
+        server["PUBLIC_BASE_URL"] = base_url
+        server["CORS_ORIGIN"] = base_url
+        config.write_env_file(server_path, server)
+        changed.append("server")
+
+    vpn_path = config.ENV_DIR / "vpn-hub.env"
+    vpn = config.read_env_file(vpn_path)
+    if vpn and vpn.get("SSTP_PUBLIC_HOST", "") == old_domain:
+        vpn["SSTP_PUBLIC_HOST"] = new_domain
+        config.write_env_file(vpn_path, vpn)
+        changed.append("vpn-hub")
+
+    mk_path = config.ENV_DIR / "mk-bridge.env"
+    mk = config.read_env_file(mk_path)
+    if mk:
+        ep = mk.get("WG_REVERSE_PUBLIC_ENDPOINT", "")
+        host, sep, port = ep.rpartition(":")
+        if ep == old_domain:  # endpoint sin puerto
+            mk["WG_REVERSE_PUBLIC_ENDPOINT"] = new_domain
+            config.write_env_file(mk_path, mk)
+            changed.append("mk-bridge")
+        elif sep and host == old_domain:  # host:puerto
+            mk["WG_REVERSE_PUBLIC_ENDPOINT"] = f"{new_domain}:{port}"
+            config.write_env_file(mk_path, mk)
+            changed.append("mk-bridge")
+
+    render_nginx(new_domain)
+    return {"old": old_domain, "changed": changed}

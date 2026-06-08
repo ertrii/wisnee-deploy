@@ -44,6 +44,7 @@ nginx → Ansible (docker, swap, UFW, fail2ban, SSH key-only) → `docker login`
 ```bash
 sudo ./wisnee init [--force] [--skip-provision] [--no-harden]
 ./wisnee update        # baja imágenes nuevas, migra y recrea (actualizaciones)
+./wisnee domain <fqdn> # cambia el dominio: re-renderiza nginx, re-emite el cert y recrea
 ./wisnee status        # docker compose ps
 ./wisnee logs [svc]    # logs en vivo
 ./wisnee seed          # (solo Demo) resetea la BD y siembra datos
