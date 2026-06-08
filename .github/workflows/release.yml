@@ -6,6 +6,10 @@ name: Release
 # create` copia el manifest en el registry (instantáneo). Así todos los
 # servicios quedan pineados a una sola versión y el rollback es trivial.
 #
+# Además, en releases ESTABLES (sin sufijo -beta/-rc) mueve `:latest` a esta
+# versión: `latest` = default móvil de prod (la última release estable), `vX.Y.Z`
+# = pin inmutable para rollback exacto. Los prereleases NO tocan `:latest`.
+#
 # Requiere el secret GHCR_PAT: un PAT classic del owner con write:packages +
 # read:packages (el de solo lectura del deploy no alcanza para retaggear).
 on:
@@ -47,16 +51,23 @@ jobs:
           S: ${{ inputs.source }}
         run: |
           set -euo pipefail
-          retag() {
+          # Servicios que componen un release coherente (mismo origen :edge).
+          SERVICES=(wisnee-server wisnee wa-bridge wa-bridge-win-dist mk-bridge vpn-hub)
+          retag() {  # retag <imagen> <tagOrigen> <tagDestino>
             local img="ghcr.io/${OWNER}/$1"
             echo "→ $img:$3  ⇐  $img:$2"
             docker buildx imagetools create -t "$img:$3" "$img:$2"
           }
-          retag wisnee-server "$S"          "$V"
-          retag wisnee-server "${S}-seed"   "${V}-seed"
-          retag wisnee        "$S"          "$V"
-          retag wa-bridge     "$S"          "$V"
-          retag wa-bridge-win-dist "$S"     "$V"
-          retag mk-bridge     "$S"          "$V"
-          retag vpn-hub       "$S"          "$V"
+          # 1) Snapshot inmutable vX.Y.Z (+ el seed del server para demo).
+          for svc in "${SERVICES[@]}"; do retag "$svc" "$S" "$V"; done
+          retag wisnee-server "${S}-seed" "${V}-seed"
+          # 2) Mover :latest SOLO en releases estables (sin sufijo -beta/-rc): es
+          #    el default móvil de prod. Un prerelease no debe volverse prod.
+          if echo "$V" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            for svc in "${SERVICES[@]}"; do retag "$svc" "$S" latest; done
+            retag wisnee-server "${S}-seed" latest-seed
+            echo "::notice::':latest' movido a $V (release estable)."
+          else
+            echo "::notice::$V es prerelease — ':latest' queda intacto."
+          fi
           echo "::notice::Release $V listo. Desplegá: ./wisnee update --tag $V"
