@@ -43,6 +43,9 @@ def render(answers: dict, secrets: dict) -> None:
         "MK_BRIDGE_SECRET": secrets["MK_BRIDGE_SECRET"],
         "VPN_HUB_URL": "http://vpn-hub:4300",
         "VPN_HUB_SECRET": secrets["VPN_HUB_SECRET"],
+        # Demo: el frontend deshabilita acciones sensibles (vincular WhatsApp,
+        # conectar/añadir Mikrotiks) y muestra un aviso. Solo true en demo.
+        "DEMO_MODE": "true" if answers["env"] == "demo" else "false",
     })
 
     _write_env(config.ENV_DIR / "wa-bridge.env", {
@@ -164,6 +167,15 @@ def reconcile_service_envs() -> list:
             "SSTP_LISTEN_PORT": "1443",
         })
         created.append("vpn-hub.env")
+
+    # DEMO_MODE deriva del entorno (APP_ENV de compose/.env). Lo agregamos solo
+    # si falta, para que droplets instalados antes de esta feature lo tomen en
+    # el próximo update; no pisamos un valor ya presente.
+    if "DEMO_MODE" not in server:
+        server["DEMO_MODE"] = (
+            "true" if compose.get("APP_ENV") == "demo" else "false"
+        )
+        server_changed = True
 
     if server_changed:
         config.write_env_file(server_path, server)
