@@ -44,10 +44,10 @@ nginx → Ansible (docker, swap, UFW, fail2ban, SSH key-only) → `docker login`
 ```bash
 sudo ./wisnee init [--force] [--skip-provision] [--no-harden]
 ./wisnee update        # baja imágenes nuevas, migra y recrea (actualizaciones)
-./wisnee domain <fqdn> # cambia el dominio: re-renderiza nginx, re-emite el cert y recrea
+./wisnee domain <fqdn> [--yes]  # cambia el dominio: re-renderiza nginx, re-emite el cert y recrea
 ./wisnee status        # docker compose ps
 ./wisnee logs [svc]    # logs en vivo
-./wisnee seed          # (solo Demo) resetea la BD y siembra datos
+./wisnee seed [--yes]  # (solo Demo) resetea la BD y siembra datos
 ./wisnee cert          # emite/renueva el certificado (recuperación)
 ./wisnee backup        # pg_dump → backups/
 ./wisnee credentials   # muestra el credentials.txt
@@ -60,17 +60,26 @@ sudo ./wisnee init [--force] [--skip-provision] [--no-harden]
 ```
 compose/
   docker-compose.yml        base: db, migrate(one-shot), server, web(SPA), proxy(nginx), certbot
-  docker-compose.prod.yml   overlay: + wa-bridge, mk-bridge
+  docker-compose.prod.yml   overlay: + wa-bridge, mk-bridge, vpn-hub, chat-node-assets(one-shot)
   docker-compose.demo.yml   overlay: + seed(one-shot, APP_ENV=demo)
-  .env.example              variables de compose (TAG, DOMAIN, APP_ENV, WG port)
+  .env.example              variables de compose (TAG, DOMAIN, APP_ENV, WG/SSTP ports)
 nginx/
   default.conf.template     reverse proxy (render ${DOMAIN}); same-origin SPA + /api + WS
 env/
-  db.env / server.env / wa-bridge.env / mk-bridge.env   (los genera el orquestador)
+  db.env / server.env / wa-bridge.env / mk-bridge.env / vpn-hub.env   (los genera el orquestador)
 ```
 
-Solo el `proxy` se publica (80/443). `mk-bridge` además expone el UDP del WG
-reverso. Postgres y los bridges quedan en la red interna `wisnee`.
+Solo el `proxy` se publica (80/443). Además, `mk-bridge` expone el UDP del WG
+reverso (Mikrotiks CGNAT con RouterOS 7) y `vpn-hub` el TCP `1443` del SSTP
+(RouterOS 6). Postgres, el server y la API HTTP de los bridges quedan en la red
+interna `wisnee`. `chat-node-assets` es un one-shot que copia el instalador del
+Chat Node para Windows al volumen que sirve el server.
+
+> El Postgres **no se expone** a propósito. Para inspeccionarlo o migrar datos
+> desde tu local, tunelizalo por SSH (no abras el puerto a internet): en el
+> server `docker run --rm -d --network wisnee -p 127.0.0.1:55432:5432
+> alpine/socat tcp-listen:5432,fork,reuseaddr tcp-connect:db:5432`, y desde tu
+> máquina `ssh -N -L <puertoLocalLibre>:127.0.0.1:55432 root@<dominio>`.
 
 ## Secrets (autogenerados, deben coincidir)
 
@@ -94,6 +103,9 @@ APP_ENV=demo docker compose -f compose/docker-compose.yml -f compose/docker-comp
 
 `migrate` corre las migraciones y termina; `server` espera a que complete. El
 seed **resetea la BD** y solo corre con `APP_ENV=demo` (el contenedor aborta si no).
+Además, `APP_ENV=demo` enciende el **modo demostración** (`DEMO_MODE`): la app
+bloquea acciones sensibles del login compartido (p. ej. editar/eliminar usuarios
+o cambiar contraseñas) para que nadie deje la demo sin acceso.
 
 ## TLS (bootstrap del certificado)
 
@@ -117,7 +129,7 @@ El servicio `certbot` del compose renueva en loop cada 12 h.
 
 ## Versionado / Releases (tren de releases)
 
-Una sola versión de producto para los 5 servicios, sin recompilar lo que no
+Una sola versión de producto para los 6 artefactos, sin recompilar lo que no
 cambió. El modelo:
 
 1. **Cada push a `main`** de un repo de app publica su imagen `:edge`
@@ -125,13 +137,14 @@ cambió. El modelo:
    que cambió (un commit de frontend NO recompila el server).
 2. **Cortar un release**: en `wisnee-deploy` → Actions → **Release** →
    *Run workflow* con la versión (`v2.0.0-beta.2`). Ese workflow **fotografía**
-   los `:edge` actuales de los 5 artefactos en un tag de versión **inmutable y
+   los `:edge` actuales de los 6 artefactos (server, web, wa-bridge,
+   wa-bridge-win-dist, mk-bridge, vpn-hub) en un tag de versión **inmutable y
    compartido** (`docker buildx imagetools create`, sin recompilar). Todos los
    servicios quedan a la misma versión.
 3. **Desplegar / rollback** por un solo número:
 
 ```bash
-./wisnee update --tag v2.0.0-beta.2   # mueve los 5 servicios a esa versión
+./wisnee update --tag v2.0.0-beta.2   # mueve los 6 artefactos a esa versión
 ./wisnee update --tag v2.0.0-beta.1   # rollback exacto
 ./wisnee update                       # re-aplica los tags vigentes (p. ej. demo en edge)
 ```
