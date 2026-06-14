@@ -18,10 +18,16 @@ def render(answers: dict, secrets: dict) -> None:
     domain = answers["domain"]
     base_url = f"https://{domain}"
 
+    # TZ a nivel de proceso: alinea crons, formateo y `now()` con la zona de la
+    # operación. Default America/Lima si no se preguntó (instalaciones viejas).
+    timezone = answers.get("timezone") or "America/Lima"
+
     _write_env(config.ENV_DIR / "db.env", {
         "POSTGRES_USER": config.DB_USER,
         "POSTGRES_PASSWORD": secrets["DB_PASSWORD"],
         "POSTGRES_DB": config.DB_NAME,
+        # Zona del contenedor de Postgres (logs y `now()`/`current_date`).
+        "TZ": timezone,
     })
 
     _write_env(config.ENV_DIR / "server.env", {
@@ -34,6 +40,10 @@ def render(answers: dict, secrets: dict) -> None:
         "DB_USERNAME": config.DB_USER,
         "DB_PASSWORD": secrets["DB_PASSWORD"],
         "DB_NAME": config.DB_NAME,
+        # Zona horaria de la instalación. Al ir como TZ del proceso, todo el
+        # server (crons, períodos, formateo, logs) corre en esta zona. La lee
+        # `config/date-tools` en el backend.
+        "TZ": timezone,
         "SECRET_KEY": secrets["SECRET_KEY"],
         "INIT_TOKEN": secrets["INIT_TOKEN"],
         "FISCAL_ENCRYPTION_KEY": secrets["FISCAL_ENCRYPTION_KEY"],
@@ -175,6 +185,14 @@ def reconcile_service_envs() -> list:
         server["DEMO_MODE"] = (
             "true" if compose.get("APP_ENV") == "demo" else "false"
         )
+        server_changed = True
+
+    # TZ: droplets instalados antes de que la zona fuera config de proceso no la
+    # tienen. La sembramos con el default (America/Lima) para no cambiarles el
+    # comportamiento; quien quiera otra zona edita server.env (y db.env) y
+    # reinicia. No pisamos un valor ya presente.
+    if "TZ" not in server:
+        server["TZ"] = "America/Lima"
         server_changed = True
 
     if server_changed:

@@ -23,6 +23,14 @@ def ask_init() -> dict:
 
     domain = _ask("Dominio público (ej. panel.tu-isp.com)")
     email = _ask("Email para Let's Encrypt (avisos de expiración)")
+    # Zona horaria de la operación (IANA). Define la hora de los crons, el
+    # cálculo de períodos/vencimientos y el display de todas las fechas. Se fija
+    # como TZ del proceso (server + Postgres). Cambiarla luego = editar el env y
+    # reiniciar; no es algo que el operador toque a diario.
+    timezone = _ask(
+        "Zona horaria de la operación (IANA, ej. America/Lima, America/Santiago)",
+        "America/Lima",
+    )
     # `edge` = última main (rolling, ideal para demo). `vX.Y.Z` = release
     # inmutable y coherente (recomendado para prod). Cambiable luego con
     # `./wisnee update --tag <tag>`.
@@ -46,6 +54,7 @@ def ask_init() -> dict:
         "env": env,
         "domain": domain,
         "email": email,
+        "timezone": timezone,
         "tag": tag,
         "ghcr_user": ghcr_user,
         "ghcr_token": ghcr_token,
